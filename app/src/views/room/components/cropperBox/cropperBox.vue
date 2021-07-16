@@ -1,9 +1,9 @@
 <!--
  * @Author: hua
  * @Date: 2019-07-18 08:54:06
- * @description: 
+ * @description: 裁剪页面
  * @LastEditors: hua
- * @LastEditTime: 2019-07-18 09:54:23
+ * @LastEditTime: 2020-10-23 20:35:27
  -->
 <template>
    <!-- 裁剪图 -->
@@ -40,9 +40,10 @@
 </template>
 <script>
 import { mapGetters, mapMutations } from "vuex";
-import { uploadBase64 } from "@/api/common";
+import { uploadBase64 } from "@/socketioApi/common";
 import { VueCropper } from "vue-cropper";
-import { chatSend } from "@/socketIoApi/chat";
+import { chatSend } from "@/socketioApi/chat";
+import {Loading} from "vue-ydui/dist/lib.rem/dialog";
 export default {
     data(){
         return {
@@ -59,14 +60,14 @@ export default {
     },
     components: {VueCropper},
     computed: {
-        ...mapGetters(["currentRoomUuid", "currentRoomName", "currentRoomSaveAction"])
+        ...mapGetters(["currentRoomUuid", "currentRoomName", "currentRoomSaveAction","IMG"])
     },
     props:{
         reqImgData: {
             type: Object,
             default () {
                 return { 
-                    url: process.env.VUE_APP_CLIENT_API,
+                    url: process.env.VUE_APP_CLIENT_SOCKET,
                     imgDatas: ""
                 }
             }
@@ -81,12 +82,12 @@ export default {
                 this.$emit('recCropperShow', false)
                 //将剪裁后的图片执行上传
                 uploadBase64(this.reqImgData).then(res => {
-                    let img = `<img class="chat_img"  preview="1" preview-text="" width="100" src="${process.env.VUE_APP_CLIENT_API+res.data.path}">`;
+                    let img = `<img class='chat_img'  preview='1' preview-text='' width='100' src='${process.env.VUE_APP_CLIENT_SOCKET+res.data.path}'>`;
                     chatSend({
                         data: {
                         msg: img,
                         room_uuid: this.currentRoomUuid,
-                        type: 1,
+                        type: this.IMG,
                         save_action:this.currentRoomSaveAction
                         }
                     });
@@ -95,19 +96,24 @@ export default {
             });
         },
         handleOnRawImg() {
-            this.$emit('recReqImgData', data)
             this.$emit('recCropperShow', false)
+            Loading.open('上传中...')
             uploadBase64(this.reqImgData).then(res => {
-                let img = `<img class="chat_img"  preview="1" preview-text="" width="100" src="${process.env.VUE_APP_CLIENT_API+res.data.path}">`;
+                Loading.close()
+                let img = `<img class='chat_img'  preview='1' preview-text='' width='100' src='${process.env.VUE_APP_CLIENT_SOCKET+res.data.path}'>`;
                 chatSend({
                 data: {
                     msg: img,
                     room_uuid: window.room_uuid,
-                    type: 1
+                    room_uuid: this.currentRoomUuid,
+                    type: this.IMG,
+                    save_action:this.currentRoomSaveAction
                 }
                 });
+                this.$emit('recReqImgData', '')
+            }).catch(e=>{
+                this.$emit('recReqImgData', '')
             });
-            this.$emit('recReqImgData', '')
         },
     }
 }
@@ -129,14 +135,14 @@ export default {
     height:100%;
     position:absoloute;
     width:100%;
-    z-index:9999
+    z-index:9
 }
 .btn_wrapper{
     position:fixed;
     width:100%;
     height:40px; 
     bottom: 10px;
-    z-index: 99999;
+    z-index: 9;
 }
 .raw_img{
     float:right;

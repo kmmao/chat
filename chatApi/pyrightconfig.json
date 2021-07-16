@@ -1,0 +1,9 @@
+{
+    "reportMissingImports": false,
+    "reportTypeshedErrors": false,
+    "reportMissingTypeStubs": true,
+    "ignore":[
+        "./typings/",
+        "./app/Models/Model.py"
+    ]
+}

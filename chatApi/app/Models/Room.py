@@ -2,19 +2,17 @@
 @Author: hua
 @Date: 2019-02-26 09:54:21
 @LastEditors: hua
-@LastEditTime: 2019-09-08 08:54:33
+@LastEditTime: 2020-04-20 19:20:25
 '''
-import time, math
-
-from sqlalchemy import and_, or_
+import time
+import math
 from sqlalchemy_serializer import SerializerMixin
 from sqlalchemy import desc, asc
 from app import dBSession
 from app.Models.Base import Base
-from app.Models.Users import Users
 from app.Models.Model import HtRoom
-from app.Vendor.Decorator import transaction, classTransaction
 from app.Vendor.Utils import Utils
+import json
 
 
 class Room(Base, HtRoom, SerializerMixin):
@@ -27,19 +25,27 @@ class Room(Base, HtRoom, SerializerMixin):
         @param int limit 取多少条
         @return dict
     """
-    def getList(self, filters, order, field=(), offset = 0, limit = 15):
+
+    def getList(self, filters, order, field=(), offset=0, limit=15):
         res = {}
-        res['page'] ={}
+        res['page'] = {}
         res['page']['count'] = dBSession.query(Room).filter(*filters).count()
         res['list'] = []
-        res['page']['total_page'] = self.get_page_number(res['page']['count'], limit)
+        res['page']['total_page'] = self.get_page_number(
+            res['page']['count'], limit)
         res['page']['current_page'] = offset
         if offset != 0:
             offset = (offset - 1) * limit
 
         if res['page']['count'] > 0:
             res['list'] = dBSession.query(Room).filter(*filters)
-            res['list'] = res['list'].order_by(order).offset(offset).limit(limit).all()
+            order = order.split(' ')
+            if order[1] == 'desc':
+                res['list'] = res['list'].order_by(
+                    desc(order[0])).offset(offset).limit(limit).all()
+            else:
+                res['list'] = res['list'].order_by(
+                    asc(order[0])).offset(offset).limit(limit).all()
         if not field:
             res['list'] = [c.to_dict() for c in res['list']]
         else:
@@ -54,10 +60,11 @@ class Room(Base, HtRoom, SerializerMixin):
         @param int $limit 取多少条
         @return dict
     """
-    def getAll(self, filters, order, field = (), limit = 0):
+
+    def getAll(self, filters, order, field=(), limit=0):
         if not filters:
             res = dBSession.query(Room)
-        else:   
+        else:
             res = dBSession.query(Room).filter(*filters)
         if limit != 0:
             res = res.limit(limit)
@@ -72,8 +79,6 @@ class Room(Base, HtRoom, SerializerMixin):
             res = [c.to_dict(only=field) for c in res]
         return res
 
-
-    
     """
         获取一条
         @param set filters 查询条件
@@ -81,7 +86,8 @@ class Room(Base, HtRoom, SerializerMixin):
         @param tuple field 字段
         @return dict
     """
-    def getOne(self, filters, order = 'id desc', field = ()):
+
+    def getOne(self, filters, order='id desc', field=()):
         res = dBSession.query(Room).filter(*filters)
         order = order.split(' ')
         if order[1] == 'desc':
@@ -93,55 +99,57 @@ class Room(Base, HtRoom, SerializerMixin):
         if not field:
             res = res.to_dict()
         else:
-           res = res.to_dict(only=field) 
+            res = res.to_dict(only=field)
         return res
-  
+
     """
         添加
         @param obj data 数据
         @return bool
     """
-    @classTransaction
+
     def addByClass(self, data):
         room = Room(**data)
         dBSession.add(room)
         dBSession.flush()
         return room.id
 
-    
     """
         修改
         @param dict data 数据
         @param set filters 条件
         @return bool
     """
-    @classTransaction
+
     def edit(self, data, filters):
-        dBSession.query(Room).filter(*filters).update(data, synchronize_session=False)
+        dBSession.query(Room).filter(
+            *filters).update(data, synchronize_session=False)
         return True
-    
+
     """
         删除
         @paramset filters 条件
         @return bool
     """
-    @classTransaction
+
     def delete(self, filters):
-        dBSession.query(Room).filter(*filters).delete(synchronize_session=False)
+        dBSession.query(Room).filter(
+            *filters).delete(synchronize_session=False)
         return True
-    
+
     """
         统计数量
         @param set filters 条件
         @param obj field 字段
         @return int
-    """  
-    def getCount(self, filters, field = None):
+    """
+
+    def getCount(self, filters, field=None):
         if field == None:
             return dBSession.query(Room).filter(*filters).count()
         else:
             return dBSession.query(Room).filter(*filters).count(field)
-        
+
     @staticmethod
     def get_page_number(count, page_size):
         count = float(count)
@@ -151,12 +159,11 @@ class Room(Base, HtRoom, SerializerMixin):
         else:
             total_page = math.ceil(count / 5)
         return total_page
-    
+
     """ 转服务层 """
 
     # 增加房间
     @staticmethod
-    @transaction
     def add(room_data):
         dBSession.add(room_data)
         return True
@@ -170,44 +177,61 @@ class Room(Base, HtRoom, SerializerMixin):
         filter = {
             Room.focused_user_id == message['focused_user_id']
         }
-        return  dBSession.query(Room).filter(*filter).first()
+        return dBSession.query(Room).filter(*filter).first()
 
+    # 添加房间记录
     @staticmethod
-    def getAll():
-        return  dBSession.query(Room).order_by(Room.created_at.desc()).all()
-
-
-    #添加房间记录
-    @staticmethod
-    @classTransaction
     def insertRoomData(message):
         room_data = Room(
-            room_uuid          = message['room_uuid'],
-            last_msg           = message['last_msg'],
-            type               = 0,
-            name               = '',
-            user_id            = message['user_id'],
-            updated_at         = int(time.time()),
-            created_at         = int(time.time())
+            room_uuid=message['room_uuid'],
+            last_msg=message['last_msg'],
+            type=message['type'],
+            name='',
+            user_id=message['user_id']
         )
-        #实例化后orm添加
+        # 实例化后orm添加
         status = room_data.add(room_data)
         if status == False:
             return False
         return True
 
-    #更新房间记录
+    # 添加房间记录
     @staticmethod
-    @classTransaction
-    def updateLastMsgRoom(room_uuid, msg, created_at):
+    def insertAdminRoomData(message):
+        room_data = Room(
+            room_uuid=message['room_uuid'],
+            last_msg=message['last_msg'],
+            type=message['type'],
+            name=message['name'],
+            user_id=message['user_id']
+        )
+        # 实例化后orm添加
+        status = room_data.add(room_data)
+        if status == False:
+            return False
+        return True
+
+    # 更新房间记录
+    @staticmethod
+    def updateLastMsgRoom(room_uuid, data, updated_at):
         dBSession.query(Room).filter(Room.room_uuid == room_uuid).update({
-            'last_msg':    msg,
-            'updated_at': created_at
+            'last_msg': json.dumps(data),
+            'updated_at': updated_at,
         })
         return True
-    
-    #获取一周数据
+
+    # 获取一周数据
     def getWeekData(self):
-        result = Utils.db_t_d(dBSession.execute('SELECT count(*) as n, (TO_DAYS( NOW( ) ) - TO_DAYS( from_unixtime(created_at))) as `d` FROM ht_room group by TO_DAYS( from_unixtime(created_at)) having d <= :val', {'val': 6}).fetchall())    
-        
+        result = []
+        dataList = Utils.db_t_d(dBSession.execute(
+            "SELECT count(*) as c, date_format(from_unixtime(created_at),'%Y-%m-%d') as d  FROM ht_room WHERE YEARWEEK(date_format(from_unixtime(created_at),'%Y-%m-%d'),1) = YEARWEEK(now(),1) GROUP BY date_format(from_unixtime(created_at),'%Y-%m-%d');").fetchall())
+        week_list = Utils.getWeekList()
+        for i, week in enumerate(week_list):
+            for data in dataList:
+                if data['d'] == week:
+                    result.append(data['c'])
+                    dataList.remove(data)
+                    break
+            if (len(result)) <= i:
+                result.append(0)
         return result

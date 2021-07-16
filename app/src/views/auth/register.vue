@@ -1,3 +1,10 @@
+<!--
+ * @Author: hua
+ * @Date: 2019-09-03 17:07:10
+ * @description: 注册
+ * @LastEditors: hua
+ * @LastEditTime: 2020-10-23 20:31:10
+ -->
 <template>
 <div>
     <CrossLine></CrossLine>
@@ -10,9 +17,9 @@
                     <span>头像：</span>
                     </div> 
                     <div class="yd-cell-right">
-                    <div class="yd-input" style="flex-direction: row-reverse;">
-                        <vImg class="head_default" :imgUrl="headImg" v-if="headImg" @click="bindFile('header_img_file')"/>
-                        <div class="head_default" @click="bindFile('header_img_file')" v-else>上传</div>
+                    <div class="yd-input" style="flex-direction: row-reverse;"  @click="bindFile('header_img_file')">
+                        <vImg class="head_default" :imgUrl="headImg" v-if="headImg" />
+                        <div class="head_default" v-else>上传</div>
                     </div>
                     <input type="file" id="header_img_file" @change="bindHeaderImg" style="display:none;">
                     </div>
@@ -50,7 +57,7 @@
                     </div> 
                     <div class="yd-cell-right">
                     <div class="yd-input">
-                        <input type="password" name="password"  v-model="password" placeholder="请输入6-12位密码" autocomplete="off">
+                        <input @keyup.enter="handleRegister" type="password" name="password"  v-model="password" placeholder="请输入6-12位密码" autocomplete="off">
                         <span class="yd-input-error" v-show="validated_status.password"></span>  
                         <a href="javascript:;" tabindex="-1" class="yd-input-password" @click="handlePasswordShow($event.target, passwordShow)" v-show="!passwordShow"></a>
                         <a href="javascript:;" tabindex="-1" class="yd-input-password yd-input-password-open" @click="handlePasswordShow($event.target, passwordShow)" v-show="passwordShow"></a>
@@ -64,7 +71,7 @@
                     </div> 
                     <div class="yd-cell-right">
                     <div class="yd-input">
-                        <input type="password" name="confirm_password"  v-model="confirm_password" placeholder="请重复密码" autocomplete="off"> 
+                        <input @keyup.enter="handleRegister" type="password" name="confirm_password"  v-model="confirm_password" placeholder="请重复密码" autocomplete="off"> 
                         <span class="yd-input-error" v-show="validated_status.confirm_password"></span> 
                         <a href="javascript:;" tabindex="-1" class="yd-input-password" @click="handleConfirmPasswordShow($event.target)" v-show="!confirmPasswordShow"></a>
                         <a href="javascript:;" tabindex="-1" class="yd-input-password yd-input-password-open" @click="handleConfirmPasswordShow($event.target)" v-show="confirmPasswordShow"></a>
@@ -74,7 +81,7 @@
             </div> 
         </div>
     </form>
-    <yd-button class="primary_bk" size="large"  color="#FFF" @click.native="handleRegister">一键注册</yd-button>
+    <yd-button :loading="loading" class="primary_bk" size="large"  color="#FFF" @click.native="handleRegister">一键注册</yd-button>
     <router-link :to="{name: 'authLogin'}" class="right">用户登录</router-link>
     <!-- 头像裁剪图 -->
     <header v-if="cropperShow" style="    background-color: rgb(255, 255, 255);
@@ -82,19 +89,18 @@
     position: fixed;
     top: 0px;
     width: 100%;
-    padding-top: 0.4rem !important;
-    height: 1.4rem !important;z-index:99">
+    height: 1rem !important;z-index:99">
         <div  style="height: 1rem;">
             <div class="yd-navbar-center">
-                <span class="yd-navbar-center-title" style="color: rgb(92, 92, 92); font-size: 0.3rem;">拖动框进行裁剪</span>
-                <span  @click="confirmCropper"  style="color: rgb(92, 92, 92);font-size: 0.3rem;padding-right: 12px;line-height: 1rem; position: fixed;right: 0px;top: 19px;">使用</span>
+                <span class="yd-navbar-center-title" style="color: rgb(92, 92, 92); font-size: 0.3rem;line-height: 1rem;">拖动框进行裁剪</span>
+                <span  @click="confirmCropper"  style="color: rgb(92, 92, 92);font-size: 0.3rem;padding-right: 12px;line-height: 1rem; position: fixed;right: 0px;top: 0px;">使用</span>
             </div>
         </div> 
     </header>
     <vueCropper
     v-if="cropperShow"
     ref="cropper_header"
-    style="height:100%;position:fixed;z-index:100000;top:1.4rem "
+    style="height:100%;position:fixed;z-index:100000;top:1rem "
     :img="option.img"
     :outputSize="option.size"
     :outputType="option.outputType"
@@ -110,22 +116,24 @@
 </div>
 </template>
 <script>
-import { Toast } from 'vue-ydui/dist/lib.rem/dialog'
+import { Toast, Loading} from 'vue-ydui/dist/lib.rem/dialog'
 import { allvalidated, validatedError } from "@/utils/validator"
 import CrossLine from '@/components/cross-line/cross-line'
 import vImg from '@/components/v-img/v-img'
-import { register } from '@/api/user'
-import {uploadBase64} from '@/api/common'
+import { register } from '@/socketioApi/user'
+import {uploadBase64} from '@/socketioApi/common'
 import { setToken } from '@/utils/auth'
 import storage  from  '@/utils/localstorage'
 import md5 from 'js-md5'
 import { VueCropper } from "vue-cropper"
 import {deleteTables} from '@/utils/indexedDB'
 import {setup} from '@/utils/socketio'
+import lrz from 'lrz'
 export default {
     components: {CrossLine, VueCropper, vImg},
     data() {
     return {
+        loading:false,
         option: {
             img: "",
             size: 1,
@@ -187,7 +195,7 @@ export default {
     };
     },
     created() {
-        window.physicsBackRouter = '/auth/login'
+        window.physicsBackRouter = -1
     },
     methods: {
         bindFile(name) {
@@ -195,23 +203,43 @@ export default {
             btn.click();
         },
         bindHeaderImg() {
-            let that = this;
-            var reader = new FileReader();
-            if(typeof event.target.files[0] !== 'undefined'){
-                reader.readAsDataURL(event.target.files[0]);
-                reader.onload = function() {
-                    that.option.img = reader.result;
-                    that.cropperShow = true;
-                };
+            let file = event.target.files[0];
+            if (file.type.indexOf("image/") == -1) {
+                Alert({ mes: "请上传图片!" });
+                return;
             }
+            lrz(file,{width:1080})
+            .then( (rst) =>{
+                // 处理成功会执行
+                if(rst.filelen > 204800){
+                    Alert({mes: "上传图片不能大于2M"})
+                }else{
+                    this.option.img = rst.base64;
+                    this.cropperShow = true;
+                }
+                console.log(rst)
+                
+            }).catch(function (err) {
+                // 处理失败会执行
+                Toast({
+                    mes: err,
+                    icon: 'error',
+                    timeout: 1500
+                })
+            })
+            .always(function () {
+                // 不管是成功失败，都会执行
+            });
         },
         confirmCropper() {
             this.$refs.cropper_header.getCropData(data => {
                 //console.log( process.env)
                 this.option.img = data;
+                Loading.open('正在上传...')
                 uploadBase64({ imgDatas: this.option.img})
                 .then(res => {
-                    this.headImg = process.env.VUE_APP_CLIENT_API+res.data.path
+                    Loading.close()
+                    this.headImg = process.env.VUE_APP_CLIENT_SOCKET+res.data.path
                 })
                 this.cropperShow = false;
             });
@@ -222,11 +250,14 @@ export default {
             //根据错误生成input状态
             validatedError(errors, this.validated_status);
             if (errors.length == 0) {
+                this.loading = true
                 let reqData = {nickName: this.nickName, email: this.email, password: md5(this.password), headImg: this.headImg}
+                console.log(reqData)
                 register(reqData).then(res=>{
+                    this.loading = false
                     deleteTables()
                     this.password = ''
-                    Toast({mes:'注册成功'})
+                    Toast({mes:'注册成功',icon: 'success'})
                     //存token
                     this.$store.commit('SET_TOKEN', res.data.token)
                     setToken('token',res.data.token)
@@ -234,6 +265,8 @@ export default {
                     this.$store.commit('updateUserInfo', res.data.user)
                     setup()
                     this.$router.push('/home')
+                }).catch(e=>{
+                    this.loading = false
                 })
             }
         },
@@ -280,6 +313,7 @@ export default {
     padding-right: 0.3rem;
     margin-top: 0.2rem;
     display: inline-block;
+    font-size: .28rem;
 }
 </style>
         

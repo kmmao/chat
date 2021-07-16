@@ -2,7 +2,7 @@
  * @Author: hua
  * @Date: 2019-04-23 20:38:30
  * @LastEditors: hua
- * @LastEditTime: 2019-06-12 19:26:34
+ * @LastEditTime: 2020-04-17 23:12:40
  -->
 <template>
   <div class="app-container">
@@ -16,11 +16,23 @@
         />
         <el-button class="filter-item" type="primary" icon="el-icon-search" @click="getList">搜索</el-button>
       </div>
-      <el-button class="filter-item" type="primary" icon="el-icon-edit" @click="dialogVisible=!dialogVisible">添加</el-button>
+      <el-button
+        class="filter-item"
+        type="primary"
+        icon="el-icon-edit"
+        @click="dialogVisible = !dialogVisible"
+      >添加</el-button>
     </div>
     <!-- 添加弹窗 -->
     <el-dialog :visible.sync="dialogVisible" title="添加管理员">
-      <el-form ref="addForm" :model="addForm" :rules="addRules" class="add-form" auto-complete="on" label-position="left">
+      <el-form
+        ref="addForm"
+        :model="addForm"
+        :rules="addRules"
+        class="add-form"
+        auto-complete="on"
+        label-position="left"
+      >
         <el-form-item prop="name">
           <el-input
             v-model="addForm.name"
@@ -40,14 +52,23 @@
             auto-complete="on"
           />
         </el-form-item>
-        <el-button  type="primary" style="width:100%;margin-bottom:30px;" @click.native.prevent="handleAdd">
-         确认
-        </el-button>
+        <el-button
+          type="primary"
+          style="width:100%;margin-bottom:30px;"
+          @click.native.prevent="handleAdd"
+        >确认</el-button>
       </el-form>
     </el-dialog>
     <!-- 编辑弹窗 -->
     <el-dialog :visible.sync="editDialogVisible" title="编辑管理员">
-      <el-form ref="editForm" :model="editForm" :rules="editRules" class="edit-form" auto-complete="on" label-position="left">
+      <el-form
+        ref="editForm"
+        :model="editForm"
+        :rules="editRules"
+        class="edit-form"
+        auto-complete="on"
+        label-position="left"
+      >
         <el-form-item prop="name">
           <el-input
             v-model="editForm.name"
@@ -68,9 +89,11 @@
             auto-complete="on"
           />
         </el-form-item>
-        <el-button  type="primary" style="width:100%;margin-bottom:30px;" @click.native.prevent="comfrimEdit">
-         确认
-        </el-button>
+        <el-button
+          type="primary"
+          style="width:100%;margin-bottom:30px;"
+          @click.native.prevent="comfrimEdit"
+        >确认</el-button>
       </el-form>
     </el-dialog>
     <el-table
@@ -78,32 +101,33 @@
       v-loading="listLoading"
       :data="list"
       fit
+      @sort-change="handleSort"
       highlight-current-row
       style="width: 100%;border: 1px solid #ebeef5;"
     >
-      <el-table-column label="ID" prop="id" sortable="custom" align="center" width="65">
+      <el-table-column label="ID" prop="id" align="center" sortable>
         <template slot-scope="scope">
-          <span>{{scope.row.id}}</span>
+          <span>{{ scope.row.id }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="用户名">
+      <el-table-column label="用户名" prop="name" align="center" sortable>
         <template slot-scope="scope">
-          <span>{{scope.row.name}}</span>
+          <span>{{ scope.row.name }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="邮箱" width="110px" align="center">
+      <el-table-column label="邮箱" prop="email" align="center" sortable>
         <template slot-scope="scope">
-          <span>{{scope.row.email}}</span>
+          <span>{{ scope.row.email }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="登录时间" width="110px" align="center">
+      <el-table-column label="登录时间" prop="login_time" align="center" sortable>
         <template slot-scope="scope">
-          <span>{{parseTime(scope.row.login_time)}}</span> 
+          <span>{{ parseTime(scope.row.login_time) }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="更新时间" class-name="status-col" width="200">
+      <el-table-column label="更新时间" prop="update_time" class-name="status-col" sortable>
         <template slot-scope="scope">
-          <span>{{parseTime(scope.row.update_time)}}</span>
+          <span>{{ parseTime(scope.row.update_time) }}</span>
         </template>
       </el-table-column>
       <el-table-column label="操作" align="center" width="230" class-name="small-padding fixed-width">
@@ -114,7 +138,7 @@
       </el-table-column>
     </el-table>
     <pagination
-      v-show="total>0"
+      v-show="total > 0"
       :total="total"
       :page.sync="listQuery.page_no"
       :limit.sync="listQuery.per_page"
@@ -126,24 +150,24 @@
 <script>
 import Pagination from "@/components/Pagination"; // Secondary package based on el-pagination
 import { getToken } from "@/utils/auth";
-import { adminList, adminDelete, adminAdd, adminEdit} from "@/api/admin";
-import {parseTime} from "@/utils/index"
+import { adminList, adminDelete, adminAdd, adminEdit } from "@/api/admin";
+import { parseTime } from "@/utils/index";
 export default {
   data() {
     const validateUsername = (rule, value, callback) => {
       if (value.length < 6) {
-        callback(new Error('用户名小于6位'))
+        callback(new Error("用户名小于6位"));
       } else {
-        callback()
+        callback();
       }
-    }
+    };
     const validatePassword = (rule, value, callback) => {
       if (value.length < 6) {
-        callback(new Error('密码小于6位'))
+        callback(new Error("密码小于6位"));
       } else {
-        callback()
+        callback();
       }
-    }
+    };
     return {
       listLoading: false,
       //表单
@@ -152,28 +176,33 @@ export default {
       total: 0,
       listQuery: {
         page_no: 1,
-        per_page: 10
+        per_page: 10,
+        orderBy: "update_time",
+        order: "desc"
       },
-      dialogVisible:false,
-      addForm:{
-        name: '',
-        pwd:''
+      dialogVisible: false,
+      addForm: {
+        name: "",
+        pwd: ""
       },
       addRules: {
-        name: [{ required: true, trigger: 'blur', validator: validateUsername }],
-        pwd: [{ required: true, trigger: 'blur', validator: validatePassword }]
+        name: [
+          { required: true, trigger: "blur", validator: validateUsername }
+        ],
+        pwd: [{ required: true, trigger: "blur", validator: validatePassword }]
       },
-      editDialogVisible:false,
-      editForm:{
-        name: '',
-        pwd:'',
-        id:0
+      editDialogVisible: false,
+      editForm: {
+        name: "",
+        pwd: "",
+        id: 0
       },
       editRules: {
-        name: [{ required: true, trigger: 'blur', validator: validateUsername }],
-        pwd: [{ required: true, trigger: 'blur', validator: validatePassword }]
+        name: [
+          { required: true, trigger: "blur", validator: validateUsername }
+        ],
+        pwd: [{ required: true, trigger: "blur", validator: validatePassword }]
       }
-
     };
   },
   components: {
@@ -185,7 +214,7 @@ export default {
       adminList(this.listQuery).then(res => {
         console.log(res);
         this.list = res.data.list;
-        this.total = res.data.page.count
+        this.total = res.data.page.count;
         this.listLoading = false;
       });
     },
@@ -198,41 +227,52 @@ export default {
         this.getList();
       });
     },
-    handleAdd(){
+    handleAdd() {
       this.$refs.addForm.validate(valid => {
         if (valid) {
-          adminAdd(this.addForm).then(res=>{
+          adminAdd(this.addForm).then(res => {
             this.$message({
               message: "新增成功",
               type: "success"
             });
-            this.dialogVisible = false
-            this.getList()
-          })
+            this.dialogVisible = false;
+            this.getList();
+          });
         }
-      })
+      });
     },
-    handleEdit(item){
-      this.editDialogVisible = true
-      this.editForm.name = item.name
-      this.editForm.id = item.id
+    handleEdit(item) {
+      this.editDialogVisible = true;
+      this.editForm.name = item.name;
+      this.editForm.id = item.id;
     },
-    comfrimEdit(){
+    comfrimEdit() {
       this.$refs.editForm.validate(valid => {
         if (valid) {
-          adminEdit(this.editForm).then(res=>{
+          adminEdit(this.editForm).then(res => {
             this.$message({
               message: "编辑成功",
               type: "success"
             });
-            this.editDialogVisible = false
-            this.getList()
-          })
+            this.editDialogVisible = false;
+            this.getList();
+          });
         }
-      })
+      });
     },
-    parseTime(time){
-      return parseTime(time)
+    handleSort({ column, prop, order }) {
+      if (!prop) return;
+      if (order == "descending") {
+        this.listQuery["order"] = "desc";
+        this.listQuery["orderBy"] = prop;
+      } else {
+        this.listQuery["order"] = "asc";
+        this.listQuery["orderBy"] = prop;
+      }
+      this.getList();
+    },
+    parseTime(time) {
+      return parseTime(time);
     }
   },
   created: function() {
@@ -242,12 +282,9 @@ export default {
 </script>
 
 <style rel="stylesheet/scss" lang="scss" scoped>
-
-
 table i {
   color: #409eff;
   margin-left: 10px;
   cursor: pointer;
 }
-
 </style>

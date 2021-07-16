@@ -1,3 +1,10 @@
+/*
+ * @Author: hua
+ * @Date: 2019-09-03 17:07:10
+ * @description: 应用临时数据管理
+ * @LastEditors: hua
+ * @LastEditTime: 2020-10-23 20:28:51
+ */
 /**
  * 作者：yujinjin9@126.com
  * 时间：2017-01-19
@@ -9,7 +16,6 @@ export default {
     imgUrl: process.env.PATH_INDEX_PIC,//图片前缀路径
     headerContentType:'application/json;charset=UTF-8',//规定类型
     htmlFontSize: 0
-
   },
   getters:{
     //判断吧标题是否和导航的一样 一样就有背景样式
@@ -29,7 +35,6 @@ export default {
   },
 
   mutations: {
-  
     //修改仓库值
     updateNavbarTitle(state, navbarTitle){
       state.navbarTitle = navbarTitle

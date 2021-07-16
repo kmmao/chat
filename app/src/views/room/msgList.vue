@@ -1,9 +1,9 @@
 <!--
  * @Author: hua
  * @Date: 2019-07-15 11:29:43
- * @description: 
+ * @description: 聊天记录
  * @LastEditors: hua
- * @LastEditTime: 2019-07-26 08:50:34
+ * @LastEditTime: 2020-10-23 20:37:08
  -->
 <template>
   <div class="room_msg_list" id="msg_list_empty">
@@ -15,7 +15,9 @@
                         <div>{{item.name}}</div> 
                         <div>{{formatTime(item.created_at)}}</div>
                     </div>
-                    <div class="msg" v-html="item.msg"></div>
+                    
+                    <div class="msg" v-if="item.type != TEXT">{{formatMsg(item)}}</div>
+                    <div class="msg" v-else v-html="item.msg"></div>
                 </div>
                 
             </div>
@@ -27,8 +29,8 @@ import { mapGetters, mapMutations} from "vuex"
 import utils from '@/utils/utils'
 import MescrollVue from "mescroll.js/mescroll.vue"
 import {getLocalRoomMsg} from "@/utils/indexedDB"
-import {getCloudRoomMsg} from '@/api/room'
-import {joinChatSend} from '@/socketIoApi/chat'
+import {getCloudRoomMsg} from '@/socketioApi/room'
+import {joinChatSend} from '@/socketioApi/chat'
 export default {
   components: {
     MescrollVue
@@ -39,7 +41,8 @@ export default {
         "currentRoomUuid",
         "currentRoomName",
         "currentRoomType",
-        "currentRoomSaveAction"
+        "currentRoomSaveAction",
+        "RECORD","TEXT","IMG","FILE"
       ])
     },
   data() {
@@ -117,7 +120,13 @@ export default {
               // 如果是第一页需手动制空列表
               if (page.num === 1) this.list = [];
               // 把请求到的数据添加到列表
-              this.list = this.list.concat(res.data.list);
+              let rawList = res.data.list
+              rawList.map(item => {
+                item['msg'] =  item['formatMsg']
+                delete item['formatMsg']
+                return item
+              })
+              this.list = this.list.concat(rawList);
               // 数据渲染成功后,隐藏下拉刷新的状态
               this.$nextTick(() => {
                 mescroll.endBySize(res.data.list.length, res.data.page.count);
@@ -129,8 +138,28 @@ export default {
           });
         }
     },
+    formatMsg(data){
+      console.log(data)
+      try{
+        if(data['type'] == this.IMG ){
+          return '[图片]'
+        }
+        if(data['type'] == this.FILE ){
+          return '[文件]'
+        }
+        if(data['type'] == this.RECORD ){
+          return '[语音]'
+        }
+        if(data['type'] == this.TEXT ){
+          return data['msg']
+        }
+        return data['msg']
+      }catch(e){
+        return msg
+      }
+		},
     formatTime(value){
-        return utils.time.formatDate(value, 'hh:mm:ss')
+      return utils.time.formatDate(value, 'hh:mm:ss')
     }
   },
   beforeRouteEnter(to, from, next) {

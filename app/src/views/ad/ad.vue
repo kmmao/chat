@@ -1,15 +1,20 @@
 <!--
  * @Author: hua
  * @Date: 2019-02-01 14:08:36
- * @description: 
+ * @description: 广告页
  * @LastEditors: hua
- * @LastEditTime: 2019-07-17 16:45:10
+ * @LastEditTime: 2020-10-23 20:30:34
  -->
 <template>
   <!-- 广告页 -->
   <div class="content">
     <!-- 右上角离开按钮 -->
     <div class="leave" v-show="goClickStatus" @click="clickGoHome">{{second}} 跳过</div>
+    <!-- 文字区 -->
+    <div class="vertical_wrapper">
+      <div class="vertical_left">穷则独善其身</div> 
+      <div class="vertical_right">达则兼济天下</div> 
+    </div>
     <!--白底图-->
     <div style="width:100%;height:100%;position:absolute;z-index:997;background:#fff!important;">
       <img class="ad_bottom wrapper" src="@/assets/img/ad/ad_bottom_750_1334.png" />

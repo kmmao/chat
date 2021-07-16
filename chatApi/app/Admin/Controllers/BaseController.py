@@ -3,14 +3,13 @@
     基础控制器，封装一些基础方法 
     验证库https://cerberus.readthedocs.io/en/stable/index.html
 '''
-from app.env import DEBUG_LOG, MAX_CONTENT_LENGTH, ALLOWED_EXTENSIONS
-from app.Vendor.Code import Code
+from app import CONST
+from app.env import DEBUG_LOG
 from app.Vendor.CustomErrorHandler import CustomErrorHandler
 from app.Vendor.Log import log
 from app.Vendor.Utils import Utils
 from flask import request, jsonify
 import cerberus
-import time
 import json
 
 
@@ -36,7 +35,7 @@ class BaseController:
             return requests
         error = {}
         error['msg'] = v.errors
-        error['error_code'] = Code.BAD_REQUEST
+        error['error_code'] = CONST['CODE']['BAD_REQUEST']['value']
         error['error'] = True
         return self.json(error)
 
@@ -60,7 +59,7 @@ class BaseController:
             return requests
         error = {}
         error['msg'] = v.errors
-        error['error_code'] = Code.BAD_REQUEST
+        error['error_code'] = CONST['CODE']['BAD_REQUEST']['value']
         error['error'] = True
         return self.json(error)
 
@@ -81,7 +80,7 @@ class BaseController:
                     'PARAMETERS': request.args,
                     'RESPONSES': body
                 }))
-        body['debug_id'] = debug_id
+            body['debug_id'] = debug_id
         return jsonify(body)
 
     '''
@@ -89,7 +88,7 @@ class BaseController:
     * @param  msg string
     * @return json
     '''
-    def error(self, msg='', show=True , code=Code.BAD_REQUEST ):
+    def error(self, msg='', show=True , code=CONST['CODE']['BAD_REQUEST']['value'] ):
         return self.json({'error_code': code, 'error': True, 'msg': msg, 'show': show})
 
     '''
@@ -98,6 +97,6 @@ class BaseController:
     * @return json
     '''
     def successData(self, data='', msg='', show=True):
-        return self.json({'error_code': Code.SUCCESS, 'data': data,'msg': msg, 'show': show})
+        return self.json({'error_code': CONST['CODE']['SUCCESS']['value'], 'data': data,'msg': msg, 'show': show})
 
 

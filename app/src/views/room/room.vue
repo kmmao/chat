@@ -1,43 +1,72 @@
 <!--
  * @Author: hua
  * @Date: 2019-02-26 09:08:43
+ * @description: 聊天室核心页面
  * @LastEditors: hua
- * @LastEditTime: 2019-09-03 17:11:42
+ * @LastEditTime: 2020-05-04 11:30:41
  -->
 <template>
   <div style="font-size: 0;" id="msg_empty">
     <!-- 内容 -->
-    <mescroll-vue  :down="mescrollDown"  @init="mescrollInit"   @touchstart="closeDefIconsShow()">
+    <mescroll-vue :down="mescrollDown" @init="mescrollInit" @touchstart="closeDefIconsShow()">
       <div class="mscroll-container">
         <div v-show="moreInfoShow" class="more_info" @click="$router.push({name: 'roomMsgList'})">
-          更多消息，请<span class="primary_color">打开消息记录</span>
+          更多消息，请
+          <span class="primary_color">打开消息记录</span>
         </div>
         <ul>
           <li v-for="(key, index) in msgList" :key="index">
-            <div class="chat-item" v-if="key.user_id == userInfo.id">
+            <div
+              class="format_time"
+              v-if="index>0 && key.created_at> parseInt(msgList[index-1].created_at)+60"
+            >{{formatTime(key.created_at)}}</div>
+            <div class="chat-item" v-if="(key.user_id == userInfo.id) && (key.user_type!=1)">
               <div class="mychat">
-                <vImg :imgUrl="key.head_img"  class="img" />
+                <vImg :imgUrl="key.head_img" class="img" />
                 <div class="nt">
                   <span v-html="key.name"></span>
                 </div>
-                <div v-if="key.type == RECORD" class="msg" @touchstart="amrPlay(key.msg, index)">
-                  <vImg class="vioce_start" style="margin-right:-3px" :imgUrl="'static/img/voice_left.gif'" v-show="key.status"/>
-                  <i class="vioce_stop_left" v-show="!key.status"></i>
-                  <span class="vioce_second">{{key.duration}}s</span>
+                <div
+                  v-if="key.type == RECORD"
+                  class="msg"
+                  @touchstart="amrPlay(JSON.parse(key.msg), index)"
+                >
+                  <img
+                    class="vioce_start"
+                    style="margin-right:-3px"
+                    :src="'static/img/voice_left.gif'"
+                    v-show="JSON.parse(key.msg)['status']"
+                  />
+                  <i class="vioce_stop_left" v-show="!JSON.parse(key.msg)['status']"></i>
+                  <span class="vioce_second">{{JSON.parse(key.msg)['duration']}}s</span>
                 </div>
                 <div v-else-if="key.type == TEXT" class="rawMsg" v-html="key.msg">{{key.msg}}</div>
+                <div v-else-if="key.type == IMG" class="rawMsg" v-html="key.msg">{{key.msg}}</div>
+                <div
+                  v-else-if="key.type == FILE"
+                  class="rawMsg"
+                  @click="handleDefMsg(key.msg)"
+                >[文件]{{formatFileName(key.msg)}}</div>
                 <div v-else class="msg" v-html="key.msg"></div>
                 <!-- 消息送达状态 -->
-                <span v-if="key.send_status == 0 " class="send_status loading_color rotate_loading">
+                <span
+                  v-if="key.send_status == LOADING "
+                  class="send_status loading_color rotate_loading"
+                >
                   <yd-icon name="refresh"></yd-icon>
                 </span>
                 <span
-                  @click="reSendMsg(key.created_at)"
-                  v-if="key.send_status == 2"
+                  @click="reSendMsg(key)"
+                  v-if="key.send_status == FAIL"
                   class="send_status color_danger"
                 >
                   <yd-icon name="error"></yd-icon>
                 </span>
+                <!-- 消息读取状态键盘输入时更新-->
+                <!--  <span class="read_status" v-if="key.send_status == SUCCESS && currentRoomType == 0">
+                  <yd-badge v-if="key.read_status == 0">未读</yd-badge>
+                  <yd-badge v-else type="primary">已读</yd-badge>
+                </span>-->
               </div>
             </div>
             <div class="chat-item" v-else>
@@ -46,29 +75,40 @@
                 <div class="nt">
                   <span v-html="key.name"></span>
                 </div>
-                <div v-if="key.type == RECORD" class="msg" @touchstart="amrPlay(key.msg, index)">
-                  <vImg
+                <div
+                  v-if="key.type == RECORD"
+                  class="msg"
+                  @touchstart="amrPlay(JSON.parse(key.msg), index)"
+                >
+                  <img
                     class="chat_right vioce_start"
-                    :imgUrl="'static/img/voice_right.gif'"
-                    v-show="key.status"
+                    :src="'static/img/voice_right.gif'"
+                    v-show="JSON.parse(key.msg)['status']"
                   />
-                  <i class="vioce_stop_right" v-show="!key.status"></i>
-                  <span class="vioce_second">{{key.duration}}s</span>
+                  <i class="vioce_stop_right" v-show="!JSON.parse(key.msg)['status']"></i>
+                  <span class="vioce_second">{{JSON.parse(key.msg)['duration']}}s</span>
                 </div>
                 <div v-else-if="key.type == TEXT" class="rawMsg" v-html="key.msg"></div>
+                <div v-else-if="key.type == IMG" class="rawMsg" v-html="key.msg">{{key.msg}}</div>
+                <div
+                  v-else-if="key.type == FILE"
+                  class="rawMsg"
+                  @click="handleDefMsg(key.msg)"
+                >[文件]{{formatFileName(key.msg)}}</div>
                 <div v-else class="msg" v-html="key.msg"></div>
               </div>
             </div>
           </li>
         </ul>
         <!-- 暂无消息 -->
-        <vEmpty v-if="msgList.length==0"></vEmpty>
+        <vEmpty v-if="msgList.length==0 && isEmpty"></vEmpty>
       </div>
     </mescroll-vue>
     <!-- 语音输入gif图 -->
-    <vImg v-show="recordingShow" class="recording" :imgUrl="'static/img/recording.gif'"/>
+    <img v-show="recordingShow" class="recording" :src="'static/img/recording.png'" />
     <!-- 输入 -->
-    <inputWrapper :style="iconsShow || defsShow ?'bottom:200px':'bottom:0.2rem'"
+    <inputWrapper
+      :style="iconsShow || defsShow ?'bottom:200px':'bottom:0rem'"
       @handleRecordShow="handleRecordShow"
       @closeDefIconsShow="closeDefIconsShow"
       @handleIconsShow="handleIconsShow"
@@ -77,48 +117,91 @@
       @handleImgOnChange="handleImgOnChange"
       @handleFileOnChange="handleFileOnChange"
       @handleContent="handleContent"
+      @handleStartRecord="handleStartRecord"
+      @onFocus="handleOnFocus"
+      @onBlur="handleOnblur"
       :recordShow="recordShow"
       :content="content"
       :touched="touched"
-      :sendShow="sendShow"></inputWrapper>
+      :sendShow="sendShow"
+    ></inputWrapper>
     <!-- 表情 -->
-    <icons @recInsertIcon="insertIcon" v-if="iconsShow"/>
+    <icons @recInsertIcon="insertIcon" v-if="iconsShow" />
     <!-- 功能栏 -->
-    <def v-show="defsShow"/>
+    <def v-show="defsShow" />
     <!-- 裁剪图 -->
-    <cropperBox v-if="cropperShow" :reqImgData="reqImgData" @recReqImgData="recReqImgData"  @recCropperShow="recCropperShow"/>   
+    <cropperBox
+      v-if="cropperShow"
+      :reqImgData="reqImgData"
+      @recReqImgData="recReqImgData"
+      @recCropperShow="recCropperShow"
+    />
   </div>
 </template>
 <script>
+/* 重新设计输入栏 */
 import Vue from "vue";
 import { mapGetters, mapMutations } from "vuex";
-import vImg from '@/components/v-img/v-img'
-import vEmpty from '@/components/v-empty/v-empty'
-import inputWrapper from './components/input-wrapper/input-wrapper'
-import icons from './components/icons/icons'
-import def from './components/def/def'
-import cropperBox from './components/cropperBox/cropperBox'
-import MescrollVue from "mescroll.js/mescroll.vue"
-import { uploadFile } from "@/api/common";
+import vImg from "@/components/v-img/v-img";
+import vEmpty from "@/components/v-empty/v-empty";
+import inputWrapper from "./components/input-wrapper/input-wrapper";
+import icons from "./components/icons/icons";
+import def from "./components/def/def";
+import cropperBox from "./components/cropperBox/cropperBox";
+import MescrollVue from "mescroll.js/mescroll.vue";
+import { uploadFile } from "@/socketioApi/common";
 import utils from "@/utils/utils";
+import { recOpen, recStart, recStop } from "@/utils/recorder";
 import storage from "@/utils/localstorage";
 import { getLocalRoomMsg } from "@/utils/indexedDB";
-import {getCloudRoomMsg} from '@/api/room'
-import {Confirm,Alert,Toast,Notify,Loading} from "vue-ydui/dist/lib.rem/dialog";
+import { getCloudRoomMsg } from "@/socketioApi/room";
+import {
+  Confirm,
+  Alert,
+  Toast,
+  Notify,
+  Loading
+} from "vue-ydui/dist/lib.rem/dialog";
 import { send } from "@/utils/socketio";
-import { chatSend, reChatSend } from "@/socketIoApi/chat";
+import { chatSend, reChatSend } from "@/socketioApi/chat";
+import axios from "axios";
+import lrz from "lrz";
 export default {
   components: {
-    MescrollVue, vImg, icons, def, cropperBox, vEmpty, inputWrapper
+    MescrollVue,
+    vImg,
+    icons,
+    def,
+    cropperBox,
+    vEmpty,
+    inputWrapper
   },
   computed: {
-    ...mapGetters(["msgList", "currentRoomUuid", "currentRoomName", "userInfo", "htmlFontSize", "currentRoomSaveAction","RECORD","TEXT","RESEND"])
+    ...mapGetters([
+      "msgList",
+      "currentRoomUuid",
+      "currentRoomName",
+      "currentRoomType",
+      "userInfo",
+      "htmlFontSize",
+      "currentRoomSaveAction",
+      "RECORD",
+      "TEXT",
+      "RESEND",
+      "IMG",
+      "FILE",
+      "LOADING",
+      "SUCCESS",
+      "FAIL"
+    ])
   },
   data() {
     return {
       uuidVal: "",
       scroll: "",
       content: "",
+      isEmpty: true,
+      isPartChatPage: false,
       iconsShow: false,
       defsShow: false,
       sendShow: false,
@@ -128,9 +211,11 @@ export default {
       cropperShow: false,
       lockDown: false,
       moreInfoShow: false,
+      onFocusLock: false,
+      clientHeight: 0,
       data: [],
       reqImgData: {
-        url: process.env.VUE_APP_CLIENT_API,
+        url: process.env.VUE_APP_CLIENT_SOCKET,
         imgDatas: ""
       },
       mescroll: null, // mescroll实例对象
@@ -141,27 +226,23 @@ export default {
           num: 1, //当前页 默认0,回调之前会加1; 即callback(page)会从1开始
           size: 10 //每页数据条数,默认10
         },
-        textInOffset: '下拉加载', // 下拉初始文案
-        textOutOffset: '释放下拉加载', // 下拉刷新完成文案
-        textLoading: '下拉加载中...'// 下拉加载中文案
+        textInOffset: "下拉加载", // 下拉初始文案
+        textOutOffset: "释放下拉加载", // 下拉刷新完成文案
+        textLoading: "下拉加载中..." // 下拉加载中文案
       }
     };
   },
-  created() {
-  },
+  created() {},
   mounted() {
-    this.init()
+    this.init();
   },
   beforeRouteEnter(to, from, next) {
     to.meta.title = to.query.name;
     next(vm => {
-      // 找到当前mescroll的ref,调用子组件mescroll-vue的beforeRouteEnter方法
       vm.$refs.mescroll && vm.$refs.mescroll.beforeRouteEnter(); // 进入路由时,滚动到原来的列表位置,恢复回到顶部按钮和isBounce的配置
     });
   },
   beforeRouteLeave(to, from, next) {
-    // 如果没有配置回到顶部按钮或isBounce,则beforeRouteLeave不用写
-    // 找到当前mescroll的ref,调用子组件mescroll-vue的beforeRouteLeave方法
     this.$refs.mescroll && this.$refs.mescroll.beforeRouteLeave(); // 退出路由时,记录列表滚动的位置,隐藏回到顶部按钮和isBounce的配置
     next();
   },
@@ -178,20 +259,13 @@ export default {
     ...mapMutations({
       updateMsgList: "updateMsgList"
     }),
-    init(){
-      this.updateMsgList([]);
-      try {
-        // 扩展API加载完毕后调用onPlusReady回调函数
-        document.addEventListener("plusready", onPlusReady(), false);
-        // 扩展API加载完毕，现在可以正常调用扩展API
-        function onPlusReady() {
-          window.r = plus.audio.getRecorder();
-        }
-      } catch (e) {
-        //console.log('不是app内')
+    init() {
+      this.clientHeight = document.body.clientHeight;
+      this.mescrollDom = document.getElementsByClassName("mescroll")[0];
+      this.isPartChatPage = false;
+      if (window.plus) {
+        window.r = plus.audio.getRecorder();
       }
-      this.mescrollDom = document.getElementsByClassName('mescroll')[0]
-      this.handleHeightToBottom(this.htmlFontSize*3)
       new Swiper(".swiper-cont", {
         loop: false,
         autoplay: false, //可选选项，自动滑动
@@ -203,96 +277,184 @@ export default {
         observer: true,
         observeParents: true
       });
-      window.onresize = () =>{
-        setTimeout(() => {
-          this.handleHeightToBottom(this.htmlFontSize*3)
+      this.updateMsgList([]);
+      this.handleHeightToBottom();
+      window.onresize = () => {
+        this.isEmpty = false;
+        if (document.body.clientHeight < this.clientHeight) {
+          /* if(this.iconsShow ==true || this.defsShow ==true){
+            setTimeout(() => {
+              this.isPartChatPage = 'keyborad'
+              this.handleHeightToBottom()
+              this.handleSendShow();
+            }, 50);
+          }else{ */
+          this.isPartChatPage = "keyborad";
+          this.handleHeightToBottom();
           this.handleSendShow();
-        }, 300);
-      }; 
+          //}
+        } else {
+          if (this.iconsShow !== true && this.defsShow !== true) {
+            this.isPartChatPage = false;
+          }
+          this.handleHeightToBottom();
+          this.handleSendShow();
+        }
+      };
     },
-    handleHeightToBottom(value){
-      this.mescrollDom.style.height = document.body.clientHeight - value + "px";
+    handleOnFocus() {
+      if (!this.onFocusLock) {
+        this.onFocusLock = true;
+        send(
+          "input",
+          { room_uuid: this.currentRoomUuid, even: "focus" },
+          "broadcast"
+        );
+      }
+    },
+    handleOnblur() {
+      this.onFocusLock = false;
+      send(
+        "input",
+        { room_uuid: this.currentRoomUuid, even: "blur" },
+        "broadcast"
+      );
+    },
+    handleHeightToBottom() {
+      if (this.isPartChatPage == false) {
+        this.mescrollDom.style.height =
+          document.body.clientHeight - this.htmlFontSize * 2 + "px";
+      } else if (this.isPartChatPage == "keyborad") {
+        this.mescrollDom.style.height =
+          document.body.clientHeight - this.htmlFontSize * 2 + "px";
+      } else {
+        this.mescrollDom.style.height =
+          document.body.clientHeight - this.htmlFontSize * 2 - 200 + "px";
+      }
+      this.handleMsgListToBottom(100);
     },
     mescrollInit(mescroll) {
       this.mescroll = mescroll;
     },
     downCallback(mescroll) {
-      if(this.mescrollDown.page.num>1){
+      if (this.mescrollDown.page.num > 1) {
         this.lockDown = true;
       }
-      if(this.currentRoomSaveAction == 0){
+      if (this.currentRoomSaveAction == 0) {
         getLocalRoomMsg(
           this.currentRoomUuid,
           this.mescrollDown.page.num,
           this.mescrollDown.page.size
         ).then(res => {
-          let msgList = JSON.parse(JSON.stringify(this.msgList))
-          msgList = res.list.concat(msgList)
+          let msgList = JSON.parse(JSON.stringify(this.msgList));
+          msgList = res.list.concat(msgList);
           this.updateMsgList(msgList);
           this.$nextTick(() => {
-            if((msgList.length> 10 && msgList.length == res.total) || this.mescrollDown.page.num>3){
-              this.moreInfoShow = true
-              mescroll.lockDownScroll(true)
+            if (
+              (msgList.length > 10 && msgList.length == res.total) ||
+              this.mescrollDown.page.num > 3
+            ) {
+              this.moreInfoShow = true;
+              mescroll.lockDownScroll(true);
             }
-            mescroll.endSuccess()// 结束下拉刷新,无参
+            mescroll.endSuccess(); // 结束下拉刷新,无参
             this.$previewRefresh();
-            this.mescrollDown.page.num++
+            this.mescrollDown.page.num++;
           });
         });
-      }else if(this.currentRoomSaveAction == 1){
-        getCloudRoomMsg(
-          {room_uuid:this.currentRoomUuid,
-          page_no:this.mescrollDown.page.num,
-          per_page:this.mescrollDown.page.size}
-        ).then(res => {
-          let msgList = JSON.parse(JSON.stringify(this.msgList))
-          msgList = res.data.list.reverse().concat(msgList)
+      } else if (this.currentRoomSaveAction == 1) {
+        getCloudRoomMsg({
+          room_uuid: this.currentRoomUuid,
+          page_no: this.mescrollDown.page.num,
+          per_page: this.mescrollDown.page.size
+        }).then(res => {
+          let msgList = JSON.parse(JSON.stringify(this.msgList));
+          let rawList = res.data.list;
+          rawList.map(item => {
+            item["msg"] = item["formatMsg"];
+            delete item["formatMsg"];
+            return item;
+          });
+          msgList = rawList.reverse().concat(msgList);
           this.updateMsgList(msgList);
           this.$nextTick(() => {
-            if((msgList.length> 10 && msgList.length == res.data.page.count) || this.mescrollDown.page.num>3){
-              this.moreInfoShow = true
-              mescroll.lockDownScroll(true)
+            if (
+              (msgList.length > 10 && msgList.length == res.data.page.count) ||
+              this.mescrollDown.page.num > 3
+            ) {
+              this.moreInfoShow = true;
+              mescroll.lockDownScroll(true);
             }
-            mescroll.endSuccess()// 结束下拉刷新,无参
+            mescroll.endSuccess(); // 结束下拉刷新,无参
             this.$previewRefresh();
-            this.mescrollDown.page.num++
+            this.mescrollDown.page.num++;
           });
         });
       }
     },
     handleFileOnChange(event) {
       let file = event.target.files[0];
-      let data = new FormData(); 
-      data.append("file", file);
-      uploadFile(data).then(res => {
-        let file_path = process.env.VUE_APP_CLIENT_API + res.data.path;
-        let file = `<a href="${file_path}" download="${res.data.name.split('.')[0]}">${res.data.name.split('.')[0]}[文件]</a>`;
-        chatSend({
-          data: {
-            msg: file,
-            room_uuid: this.currentRoomUuid,
-            type: this.TEXT,
-            save_action:this.currentRoomSaveAction
-          }
-        });
-      });
+      if (!!file) {
+        //读取本地文件，以gbk编码方式输出
+        var reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = e => {
+          Loading.open("上传中...");
+          uploadFile({
+            dataUrl: e.target.result,
+            name: file.name,
+            size: file.size,
+            type: file.type
+          })
+            .then(res => {
+              let file_path = process.env.VUE_APP_CLIENT_SOCKET + res.data.path;
+              let file = `<a href='${file_path}' download='${
+                res.data.name.split(".")[0]
+              }'>${res.data.name.split(".")[0]}[文件]</a>`;
+              Loading.close();
+              chatSend({
+                data: {
+                  msg: file,
+                  room_uuid: this.currentRoomUuid,
+                  type: this.FILE,
+                  save_action: this.currentRoomSaveAction
+                }
+              });
+            })
+            .catch(e => {
+              Loading.close();
+            });
+        };
+      }
     },
     handleImgOnChange(event) {
-      let that = this;
       let file = event.target.files[0];
       if (file.type.indexOf("image/") == -1) {
         Alert({ mes: "请上传图片!" });
         return;
       }
-      //创建读取文件的对象
-      let reader = new FileReader();
-      //为文件读取成功设置事件
-      reader.onload = function(e) {
-        that.reqImgData.imgDatas = e.target.result;
-        that.cropperShow = true;
-      };
-      //正式读取文件
-      reader.readAsDataURL(file);
+      lrz(file, { width: 1080 })
+        .then(rst => {
+          // 处理成功会执行
+          if (rst.filelen > 204800) {
+            Alert({ mes: "上传图片不能大于2M" });
+          } else {
+            this.reqImgData.imgDatas = rst.base64;
+            this.cropperShow = true;
+          }
+          console.log(rst);
+        })
+        .catch(function(err) {
+          // 处理失败会执行
+          Toast({
+            mes: err,
+            icon: "error",
+            timeout: 1500
+          });
+        })
+        .always(function() {
+          // 不管是成功失败，都会执行
+        });
     },
     // 扩展API加载完毕，现在可以正常调用扩展API
     getCurrentPosition() {
@@ -303,7 +465,7 @@ export default {
               msg: p.addresses,
               room_uuid: this.currentRoomUuid,
               type: this.TEXT,
-              save_action:this.currentRoomSaveAction
+              save_action: this.currentRoomSaveAction
             }
           });
         },
@@ -326,12 +488,11 @@ export default {
       );
     },
     sendMsg() {
-      this.created_at = parseInt(new Date().getTime() / 1000);
       chatSend({
         data: {
           msg: this.content,
           room_uuid: this.currentRoomUuid,
-          type: this.TEXT, //1是文字，0是语音, 2是重发
+          type: this.TEXT,
           save_action: this.currentRoomSaveAction
         }
       });
@@ -339,29 +500,34 @@ export default {
       this.content = "";
       this.closeDefIconsShow();
     },
-    reSendMsg(created_at) {
+    reSendMsg(key) {
       reChatSend({
         data: {
           room_uuid: this.currentRoomUuid,
-          type: this.RESEND, //1是文字，0是语音, 2是重发
-          created_at: created_at,
+          type: this.RESEND,
+          created_at: key.created_at,
+          user_id: key.user_id,
+          msg: key.msg,
           save_action: this.currentRoomSaveAction
         }
       });
     },
-    handleContent(value){
-      this.content = value
+    handleContent(value) {
+      this.content = value;
     },
     handleRecordShow(value) {
-      if(value== ''){
+      if (value == "") {
         this.recordShow = !this.recordShow;
-      }else{
-        this.recordShow = value
+      } else {
+        this.recordShow = value;
       }
     },
     closeDefIconsShow() {
-      this.iconsShow = false;this.defsShow = false;this.recordShow = false;
-      this.handleHeightToBottom(this.htmlFontSize*3)
+      this.iconsShow = false;
+      this.defsShow = false;
+      this.recordShow = false;
+      this.isPartChatPage = false;
+      this.handleHeightToBottom();
     },
     handleSendShow() {
       if (this.content.length >= 1) {
@@ -371,67 +537,283 @@ export default {
       }
     },
     /* 回滚到底部并重置预览图片 */
-    handleMsgListToBottom() {
+    handleMsgListToBottom(delayTime) {
       this.$nextTick(() => {
         setTimeout(() => {
-          if(!this.lockDown){
-            this.mescrollDom.scrollTop = document.getElementsByClassName('mscroll-container')[0].scrollHeight;
+          if (!this.lockDown) {
+            this.mescrollDom.scrollTop = document.getElementsByClassName(
+              "mscroll-container"
+            )[0].scrollHeight;
           }
           this.$previewRefresh();
           this.lockDown = false;
-        }, 100);
+        }, delayTime);
       });
     },
     handleDefsShow() {
+      //这边需要解决获取焦点后的再切换表情的bug
+      document.getElementsByClassName("edit-div")[0].blur();
       if (this.defsShow) {
-        this.handleHeightToBottom(this.htmlFontSize*3)
+        this.isPartChatPage = false;
+        this.handleHeightToBottom();
       } else {
-        this.handleHeightToBottom(this.htmlFontSize*7.5)
+        this.isPartChatPage = true;
+        this.handleHeightToBottom();
       }
-      this.defsShow = !this.defsShow;this.iconsShow = false;this.recordShow = false;
+      this.defsShow = !this.defsShow;
+      this.iconsShow = false;
+      this.recordShow = false;
       this.handleSendShow();
       if (this.iconsShow == false && this.defsShow == false) {
-        this.handleHeightToBottom(this.htmlFontSize*3)
+        this.isPartChatPage = false;
+        this.handleHeightToBottom();
       }
-      this.handleMsgListToBottom()
+      this.handleMsgListToBottom(100);
     },
     handleIconsShow() {
-      this.iconsShow?this.handleHeightToBottom(this.htmlFontSize*3):this.handleHeightToBottom(this.htmlFontSize*7.5)
+      //这边需要解决获取焦点后的再切换表情的bug
+      document.getElementsByClassName("edit-div")[0].blur();
+      if (this.iconsShow) {
+        this.isPartChatPage = false;
+        this.handleHeightToBottom();
+      } else {
+        this.isPartChatPage = true;
+        this.handleHeightToBottom();
+      }
       this.iconsShow = !this.iconsShow;
       this.defsShow = false;
       this.recordShow = false;
       this.handleSendShow();
-      if (this.iconsShow == false && this.defsShow == false) this.handleHeightToBottom(this.htmlFontSize*3)
-      
-      this.handleMsgListToBottom()
+      if (this.iconsShow == false && this.defsShow == false) {
+        this.isPartChatPage = false;
+        this.handleHeightToBottom();
+      }
+      this.handleMsgListToBottom(100);
     },
     insertIcon(src) {
-      this.content = `${this.content}<img src="${src}">`
+      this.content = `${this.content}<img src='${src}'>`;
     },
-    amrPlay(url, index) {
-      /* let that = this;
-      Vue.set(this.data[index].data, "status", true);
+    handleStartRecord() {
+      this.defsShow = false;
+      this.iconsShow = false;
+      this.recordingShow = true;
+      this.touched = true;
+      if (window.plus) {
+        if (window.r == null) {
+          this.recordingShow = false;
+          this.touched = false;
+          return;
+        }
+        window.r.stop();
+        window.r.record(
+          { filename: "_doc/audio/" },
+          p => {
+            console.log("录音完成:" + p);
+            //上传
+            this.Audio2dataURL(p);
+          },
+          e => {
+            console.log("录音出错", e);
+            this.recordingShow = false;
+            this.touched = false;
+          }
+        );
+      } else {
+        //使用H5录音
+        recOpen(function() {
+          recStart();
+        });
+      }
+    },
+    recordStop() {
+      let that = this;
+      recStop(blob => {
+        // name
+        const filename =
+          this.currentRoomUuid +
+          this.userInfo.id +
+          new Date().getTime() +
+          ".amr";
+        // blob转file
+        var file = new File([blob], filename, {
+          type: "amr",
+          lastModified: Date.now()
+        });
+        var reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = e => {
+          uploadFile({
+            dataUrl: e.target.result,
+            name: filename,
+            size: file.size,
+            type: "amr"
+          }).then(res => {
+            var BenzAMRRecorder = require("benz-amr-recorder");
+            var amr = new BenzAMRRecorder();
+            const url = process.env.VUE_APP_CLIENT_SOCKET + res.data.path;
+            amr
+              .initWithUrl(url)
+              .then(() => {
+                chatSend({
+                  data: {
+                    msg: JSON.stringify({
+                      url: url,
+                      duration: amr.getDuration(),
+                      status: false
+                    }),
+                    room_uuid: that.currentRoomUuid,
+                    type: that.RECORD,
+                    save_action: that.currentRoomSaveAction
+                  }
+                });
+                that.recordingShow = false;
+                that.touched = false;
+              })
+              .catch(e => {
+                console.log(e);
+                that.recordingShow = false;
+                that.touched = false;
+              });
+          });
+        };
+      });
+    },
+    /**
+     * 录音语音文件转base64字符串
+     * @param {Object} path
+     */
+    Audio2dataURL(path) {
+      let that = this;
+      plus.io.resolveLocalFileSystemURL(path, function(entry) {
+        entry.file(
+          function(file) {
+            var reader = new plus.io.FileReader();
+            reader.onloadend = function(e) {
+              uploadFile({
+                dataUrl: e.target.result,
+                name: file.name,
+                size: file.size,
+                type: file.type
+              }).then(res => {
+                that.recordingShow = false;
+                var BenzAMRRecorder = require("benz-amr-recorder");
+                var amr = new BenzAMRRecorder();
+                let url = process.env.VUE_APP_CLIENT_SOCKET + res.data.path;
+                amr
+                  .initWithUrl(url)
+                  .then(function() {
+                    chatSend({
+                      data: {
+                        msg: JSON.stringify({
+                          url: url,
+                          duration: amr.getDuration(),
+                          status: false
+                        }),
+                        room_uuid: that.currentRoomUuid,
+                        type: that.RECORD,
+                        save_action: that.currentRoomSaveAction
+                      }
+                    });
+                  })
+                  .catch(e => {
+                    console.log(e);
+                  });
+              });
+            };
+            reader.readAsDataURL(file);
+          },
+          function(e) {
+            console.log("读写出现异常: " + e.message);
+          }
+        );
+      });
+    },
+    amrPlay(rawData, index) {
+      let that = this;
+      let data = JSON.parse(JSON.stringify(rawData));
+      let msgList = JSON.parse(JSON.stringify(this.msgList));
+      data["status"] = true;
+      msgList[index]["msg"] = JSON.stringify(data);
+      this.$store.dispatch("updateMsgList", msgList);
       var BenzAMRRecorder = require("benz-amr-recorder");
       var amr = new BenzAMRRecorder();
-      amr.initWithUrl(url).then(function() {
+      amr.initWithUrl(data.url).then(function() {
         amr.play();
       });
-      amr.onEnded(function() {
-        Vue.set(that.data[index].data, "status", false);
-      }); */
+      amr.onEnded(() => {
+        let data = JSON.parse(JSON.stringify(rawData));
+        let msgList = JSON.parse(JSON.stringify(this.msgList));
+        data["status"] = false;
+        msgList[index]["msg"] = JSON.stringify(data);
+        this.$store.dispatch("updateMsgList", msgList);
+      });
     },
-    recReqImgData(value){
+    recReqImgData(value) {
       this.reqImgData.imgDatas = value;
     },
-    recCropperShow(value){
+    recCropperShow(value) {
       this.cropperShow = value;
+    },
+    formatTime(value) {
+      return utils.time.formatDate(value, "yyyy-MM-dd hh:mm:ss");
+    },
+    formatFileName(msg) {
+      try {
+        if (msg) {
+          var pat = /href='(.+?)'/;
+          let url = pat.exec(msg)[1];
+          return url.split("uploads/")[1];
+        }
+      } catch (e) {
+        return "解析错误";
+      }
+    },
+    handleDefMsg(msg) {
+      if (msg.indexOf("download") != -1) {
+        var pat = /href='(.+?)'/;
+        let url = pat.exec(msg)[1];
+        axios({
+          method: "get",
+          url: url,
+          timeout: 3000,
+          headers: {},
+          responseType: "blob"
+        })
+          .then(res => {
+            const blob = new Blob([res.data]); //处理文档流
+            const fileName = url.split("uploads/")[1];
+            const elink = document.createElement("a");
+            elink.download = fileName;
+            elink.style.display = "none";
+            elink.href = URL.createObjectURL(blob);
+            document.body.appendChild(elink);
+            elink.click();
+            URL.revokeObjectURL(elink.href); // 释放URL 对象
+            document.body.removeChild(elink);
+          })
+          .catch(res => {
+            console.log(res);
+          });
+      }
     }
   },
   watch: {
     //监听聊天数据变动
     content: "handleSendShow",
     data: "handleSendShow",
-    msgList: "handleMsgListToBottom"
+    msgList: {
+      handler() {
+        this.handleMsgListToBottom(100);
+      }
+    },
+    recordShow(newVal, oldVal) {
+      if (!newVal) {
+        if (window.plus) {
+          window.r.stop();
+        }
+        this.recordStop();
+      }
+    }
   }
 };
 </script>

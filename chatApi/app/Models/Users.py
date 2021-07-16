@@ -1,8 +1,8 @@
 '''
 @Author: hua
 @Date: 2019-02-10 09:55:10
-@LastEditors: hua
-@LastEditTime: 2019-09-14 13:57:17
+@LastEditors  : hua
+@LastEditTime : 2020-01-09 20:49:26
 '''
 import math
 from sqlalchemy_serializer import SerializerMixin
@@ -10,7 +10,6 @@ from sqlalchemy import desc, asc
 from werkzeug.security import check_password_hash, generate_password_hash
 from app.Models.Base import Base
 from app.Models.Model import HtUser
-from app.Vendor.Decorator import transaction, classTransaction
 from app.Vendor.Utils import Utils
 from app import dBSession
 
@@ -36,10 +35,13 @@ class Users(Base, HtUser, SerializerMixin):
         res['page']['current_page'] = offset
         if offset != 0:
             offset = (offset - 1) * limit
-
         if res['page']['count'] > 0:
             res['list'] = dBSession.query(Users).filter(*filters)
-            res['list'] = res['list'].order_by(order).offset(offset).limit(limit).all()
+            order = order.split(' ')
+            if order[1] == 'desc':
+                res['list'] = res['list'].order_by(desc(order[0])).offset(offset).limit(limit).all()
+            else:
+                res['list'] = res['list'].order_by(asc(order[0])).offset(offset).limit(limit).all()
         if not field:
             res['list'] = [c.to_dict() for c in res['list']]
         else:
@@ -100,7 +102,6 @@ class Users(Base, HtUser, SerializerMixin):
         @param obj data 数据
         @return bool
     """
-    @classTransaction
     def add(self, data):
         users = Users(**data)
         dBSession.add(users)
@@ -113,7 +114,6 @@ class Users(Base, HtUser, SerializerMixin):
         @param set filters 条件
         @return bool
     """
-    @classTransaction
     def edit(self, data, filters):
         dBSession.query(Users).filter(*filters).update(data, synchronize_session=False)
         return True
@@ -123,7 +123,6 @@ class Users(Base, HtUser, SerializerMixin):
         @paramset filters 条件
         @return bool
     """
-    @classTransaction
     def delete(self, filters):
         dBSession.query(Users).filter(*filters).delete(synchronize_session=False)
         return True
@@ -164,5 +163,15 @@ class Users(Base, HtUser, SerializerMixin):
     
     #获取一周数据
     def getWeekData(self):
-        result = Utils.db_t_d(dBSession.execute('SELECT count(*) as n, (TO_DAYS( NOW( ) ) - TO_DAYS( from_unixtime(created_at))) as `d` FROM ht_users group by TO_DAYS( from_unixtime(created_at)) having d <= :val', {'val': 6}).fetchall())
+        result = []
+        dataList = Utils.db_t_d(dBSession.execute("SELECT count(id) as c, date_format(from_unixtime(created_at),'%Y-%m-%d') as d FROM ht_users WHERE YEARWEEK(date_format(from_unixtime(created_at),'%Y-%m-%d'),1) = YEARWEEK(now(),1) GROUP BY date_format(from_unixtime(created_at),'%Y-%m-%d');").fetchall())
+        week_list = Utils.getWeekList()
+        for i, week in enumerate(week_list):
+            for data in dataList:
+                if data['d'] == week:
+                    result.append(data['c'])
+                    dataList.remove(data)
+                    break 
+            if (len(result)) <= i:
+                result.append(0)
         return result

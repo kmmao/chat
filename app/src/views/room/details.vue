@@ -1,9 +1,9 @@
 <!--
  * @Author: hua
  * @Date: 2019-07-10 10:50:03
- * @description: 
+ * @description: 房间详情
  * @LastEditors: hua
- * @LastEditTime: 2019-07-19 10:40:20
+ * @LastEditTime: 2020-10-23 20:36:53
  -->
 <template>
     <div class="room_details">
@@ -11,43 +11,43 @@
         <template v-if="isHide">
             <!-- 只显示摘要的画面 -->
             <div class="hideBg" >
-                <p class="summary">
+                <div class="summary">
+                    <ul class="user_header_wrapper">
+                        <li v-for="(item, index) in list" :key="index">
+                            <vImg :style="item.users.online?'':'background: grey;opacity: 0.5'" :imgUrl="item.users.head_img"></vImg>
+                            <span>{{item.users.nick_name}}</span>
+                        </li>
+                    </ul>
+                </div>
+                <div class="showBtn">
+                    <!-- 绑定点击事件onShow，点击展开全文 -->
+                    <a href="#" @click.stop.prevent="onShow">
+                        展开查看全部&nbsp;
+                        <!-- 向下的角箭头符号，用css画 -->
+                        <span class="downArrow"></span>
+                    </a>
+                </div>
+            </div>
+        </template>
+        <template v-else>
+            <!-- 显示完整内容的画面 -->
+            <div class="showBg">
+                <div>
                     <ul class="user_header_wrapper">
                         <li v-for="(item, index) in list" :key="index">
                             <vImg :imgUrl="item.users.head_img"></vImg>
                             <span>{{item.users.nick_name}}</span>
                         </li>
                     </ul>
-            </p>
-            <div class="showBtn">
-                <!-- 绑定点击事件onShow，点击展开全文 -->
-                <a href="#" @click.stop.prevent="onShow">
-                展开查看全部&nbsp;
-                <!-- 向下的角箭头符号，用css画 -->
-                <span class="downArrow"></span>
-                </a>
-            </div>
-            </div>
-        </template>
-        <template v-else>
-            <!-- 显示完整内容的画面 -->
-            <div class="showBg">
-            <p>
-                <ul class="user_header_wrapper">
-                        <li v-for="(item, index) in list" :key="index">
-                            <vImg :imgUrl="item.users.head_img"></vImg>
-                            <span>{{item.users.nick_name}}</span>
-                        </li>
-                    </ul>
-            </p>
-            <div class="hideBtn">
-                <!-- 绑定点击事件onHide，点击收起内容 -->
-                <a href="#" @click.stop.prevent="onHide">
-                收起&nbsp;
-                <!-- 向上的角箭头符号 -->
-                <span class="upArrow"></span>
-                </a>
-            </div>
+                </div>
+                <div class="hideBtn">
+                    <!-- 绑定点击事件onHide，点击收起内容 -->
+                    <a href="#" @click.stop.prevent="onHide">
+                        收起&nbsp;
+                        <!-- 向上的角箭头符号 -->
+                        <span class="upArrow"></span>
+                    </a>
+                </div>
             </div>
         </template>
         <!-- 房间名称 -->
@@ -87,20 +87,31 @@
             </span>
         </yd-cell-item>
         <!--删除并退出-->
-        <yd-button size="large" type="hollow" @click.native="handleDelRoom">删除并退出</yd-button>
+        <yd-button size="large" type="hollow" @click.native="$refs.DelRoomRef.openMask">删除并退出</yd-button>
+        <!-- 模态窗 -->
+        <vModal 
+            ref="DelRoomRef"
+            @onConfirm="handleDelRoom"
+            :title="'提示'"
+            :text="'删除房间'"
+            :description="'删除后聊天记录将清空'"
+		>
+		</vModal>
     </div>
 </template>
 <script>
 import { mapGetters, mapMutations} from "vuex";
+import {Confirm} from "vue-ydui/dist/lib.rem/dialog";
+import vModal from '@/components/v-modal/v-modal'
 import storage from "@/utils/localstorage"
 import vImg from '@/components/v-img/v-img'
-import {joinChatSend} from '@/socketIoApi/chat'
+import {joinChatSend} from '@/socketioApi/chat'
 import CrossLine from '@/components/cross-line/cross-line'
 import CrossItem from '@/components/cross-item/cross-item'
 import {delRoomMsg} from '@/utils/indexedDB'
-import {roomMsgDel, roomDel} from '@/api/room'
+import {roomMsgDel, roomDel} from '@/socketioApi/room'
 import {Alert, Toast } from 'vue-ydui/dist/lib.rem/dialog'
-import {userRoomRelationGetByRoomUuid, userRoomRelationUpdateAlert, userRoomRelationUpdateSaveAction} from '@/api/userRoomRelation'
+import {userRoomRelationGetByRoomUuid, userRoomRelationUpdateAlert, userRoomRelationUpdateSaveAction} from '@/socketioApi/userRoomRelation'
 export default {
     data() {
         return {
@@ -112,7 +123,7 @@ export default {
             }
         };
     },
-    components: {vImg, CrossLine},
+    components: {vImg, vModal, CrossLine},
     computed: {
         ...mapGetters([
             "currentRoomUuid",
@@ -129,6 +140,7 @@ export default {
     methods: {
         init(){
             userRoomRelationGetByRoomUuid({room_uuid: this.currentRoomUuid}).then(res=>{
+                console.log('313131',res)
                 this.list = res.data.list
                 this.room = res.data.room.room
                 if(res.data.room.is_alert){
@@ -149,26 +161,47 @@ export default {
         onHide: function() {
             this.isHide = true; //点击onHide切换为true，显示为折叠画面
         },
-        handleDelRoom(){
-            roomDel({room_uuid:this.currentRoomUuid}).then(res=>{
-                Alert({
-                    'mes':'删除并退出成功',
-                    callback:()=>{
-                        this.$router.push({name:'home'})
-                    }
-                })
-            })
+        handleDelRoom(){      
+            this.$refs.DelRoomRef.closeMask()
+            setTimeout(()=>{
+                roomDel({room_uuid:this.currentRoomUuid}).then(res=>{
+                    Alert({
+                        'mes':'删除并退出成功',
+                        callback:()=>{
+                            this.$router.push({name:'home'})
+                        }
+                    })
+                }) 
+            },500)    
         },
         handleDelRoomMsg(){
-            if(this.currentRoomSaveAction == 0){
-                delRoomMsg(this.currentRoomUuid).then(res=>{
-                    Toast({'mes':'删除成功'})
-                })
-            }else if(this.currentRoomSaveAction == 1){
-                roomMsgDel({room_uuid:this.currentRoomUuid}).then(res=>{
-                    Toast({'mes':'删除成功'})
-                })
-            }
+            Confirm({
+                title: '提示',
+                mes: '只能删除本地记录，确认删除？',
+                opts: [
+                    {
+                        txt: '取消',
+                        color: false,
+                        callback: () => {
+                        }
+                    },
+                    {
+                        txt: '确定',
+                        color: true,
+                        callback: () => {
+                            if(this.currentRoomSaveAction == 0){
+                                delRoomMsg(this.currentRoomUuid).then(res=>{
+                                    Toast({'mes':'删除成功'})
+                                })
+                            }/* else if(this.currentRoomSaveAction == 1){
+                                roomMsgDel({room_uuid:this.currentRoomUuid}).then(res=>{
+                                    Toast({'mes':'删除成功'})
+                                })
+                            } */
+                        }
+                    }
+                ]
+            });
         }
     },
     destroyed(){
@@ -192,7 +225,9 @@ export default {
         },
         save_action:{
             handler(){
-                userRoomRelationUpdateSaveAction({save_action: this.save_action, room_uuid: this.currentRoomUuid})
+                userRoomRelationUpdateSaveAction({save_action: this.save_action, room_uuid: this.currentRoomUuid}).then(res=>{
+                    this.$store.commit('updateCurrentRoomSaveAction',this.save_action)
+                })
             }
         }
     }

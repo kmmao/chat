@@ -2,7 +2,7 @@
 @Author: hua
 @Date: 2019-02-26 09:54:21
 @LastEditors: hua
-@LastEditTime: 2019-07-12 20:37:26
+@LastEditTime: 2019-12-03 09:32:38
 '''
 import time, math
 
@@ -14,7 +14,6 @@ from app.Models.Base import Base
 from app.Models.Model import HtUserRoomRelation
 from app.Models.Users import Users
 from app.Models.Room import Room
-from app.Vendor.Decorator import transaction, classTransaction
 from app.Vendor.Utils import Utils
 
 class UserRoomRelation(Base, HtUserRoomRelation, SerializerMixin):
@@ -38,10 +37,13 @@ class UserRoomRelation(Base, HtUserRoomRelation, SerializerMixin):
         res['page']['current_page'] = offset
         if offset != 0:
             offset = (offset - 1) * limit
-
         if res['page']['count'] > 0:
             res['list'] = dBSession.query(UserRoomRelation).filter(*filters)
-            res['list'] = res['list'].order_by(order).offset(offset).limit(limit).all()
+            order = order.split(' ')
+            if order[1] == 'desc':
+                res['list'] = res['list'].order_by(desc(order[0])).offset(offset).limit(limit).all()
+            else:
+                res['list'] = res['list'].order_by(asc(order[0])).offset(offset).limit(limit).all()
         if not field:
             res['list'] = [c.to_dict() for c in res['list']]
         else:
@@ -103,7 +105,6 @@ class UserRoomRelation(Base, HtUserRoomRelation, SerializerMixin):
         @param obj data 数据
         @return bool
     """
-    @classTransaction
     def add(self, data):
         userRoomRelation = UserRoomRelation(**data)
         dBSession.add(userRoomRelation)
@@ -117,7 +118,6 @@ class UserRoomRelation(Base, HtUserRoomRelation, SerializerMixin):
         @param set filters 条件
         @return bool
     """
-    @classTransaction
     def edit(self, data, filters):
         dBSession.query(UserRoomRelation).filter(*filters).update(data, synchronize_session=False)
         return True
@@ -127,7 +127,6 @@ class UserRoomRelation(Base, HtUserRoomRelation, SerializerMixin):
         @paramset filters 条件
         @return bool
     """
-    @classTransaction
     def delete(self, filters):
         dBSession.query(UserRoomRelation).filter(*filters).delete(synchronize_session=False)
         return True
@@ -165,12 +164,11 @@ class UserRoomRelation(Base, HtUserRoomRelation, SerializerMixin):
         filters = {
             UserRoomRelation.user_id == user_id
         }
-        data = dBSession.query(UserRoomRelation).order_by(UserRoomRelation.updated_at.desc()).filter(*filters).all()
-        data = Base.formatBody(Utils.db_l_to_d(data))
+        res = dBSession.query(UserRoomRelation).order_by(UserRoomRelation.updated_at.desc()).filter(*filters).all()
+        data = {"list":Utils.db_l_to_d(res)}
         return data
     
     @staticmethod
-    @transaction
     def updateUnreadNumber(room_uuid, user_id):
         # 更新关注者未读消息
         filter = {
@@ -181,10 +179,8 @@ class UserRoomRelation(Base, HtUserRoomRelation, SerializerMixin):
             UserRoomRelation.unread_number: UserRoomRelation.unread_number+1,
             UserRoomRelation.updated_at: time.time()
         })
-        return dBSession.commit()
     
     @staticmethod
-    @transaction
     def cleanUnreadNumber(room_uuid, user_id):
         # 清除关注者未读消息次数
         filter = {
@@ -193,5 +189,4 @@ class UserRoomRelation(Base, HtUserRoomRelation, SerializerMixin):
         }
         dBSession.query(UserRoomRelation).filter(
             *filter).update({'unread_number': 0, 'updated_at': time.time()})
-        return dBSession.commit()
     

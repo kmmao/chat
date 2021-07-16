@@ -1,9 +1,9 @@
 <!--
  * @Author: hua
  * @Date: 2019-08-15 21:16:40
- * @description: 
+ * @description: 输入框页面
  * @LastEditors: hua
- * @LastEditTime: 2019-08-16 14:24:34
+ * @LastEditTime: 2020-10-23 20:36:47
  -->
 <template>
     <div class="input_wrapper">
@@ -13,7 +13,7 @@
       <!-- 语音输入 -->
       <div :class="touched? 'record touched':'record'" v-show="recordShow" @touchstart="startRecord" @touchend="stopRecord">按住说话</div>
       <!-- 输入栏 -->
-      <vEditDiv v-show="!recordShow" @click.native="closeDefIconsShow" class="input"  id="edit" placeholder="请输入文字"  v-model="innerText"></vEditDiv>
+      <vEditDiv v-show="!recordShow" @onFocus="onFocus" @onBlur="onBlur" @click.native="closeDefIconsShow" class="input"  id="edit" placeholder="请输入文字"  v-model="innerText"></vEditDiv>
       <div class="def" @click="handleIconsShow">
         <yd-icon slot="icon" name="uniE905" custom></yd-icon>
       </div>
@@ -72,20 +72,24 @@ export default {
         }
     },
     methods:{
+        onFocus(){
+            this.$emit('onFocus');
+        },
+        onBlur(){
+            this.$emit('onBlur');
+        },
         handleRecordShow(){
             this.$emit('handleRecordShow', '')
         },
         // 录音开始
         startRecord() {
-            //to do
-            Alert({'mes':'该功能只能在app内使用'})
+          this.$emit('handleStartRecord','')
+
         },
         // 录音结束
         stopRecord() {
             this.$emit('handleRecordShow', false)
-            if (window.plus) {
-                window.r.stop();
-            }
+            //window.r.stop();
         },
         closeDefIconsShow(){
             this.$emit('closeDefIconsShow', '')
@@ -112,7 +116,7 @@ export default {
 .input_wrapper {
     width: 100%;
     display:flex;
-    bottom: 0.2rem;
+    bottom: 0rem;
     flex-wrap:row;
     justify-content:space-between;
     position:fixed;
@@ -123,20 +127,24 @@ export default {
 .voice {
     display: flex;
     flex-direction: column-reverse;
-    padding: 5px 8px;
+    padding: 0.2rem;
     vertical-align: middle;
 }
 
 .input {
-   /*  width: 61%; */
+    /* width: 61%; */
     max-height: 100px;
-    line-height: 24px;
+    line-height: 0.6rem;
     font-size: 20px;
-    padding: 5px 8px;
+    /* padding: 5px 8px; */
     border-bottom: 1px solid #00C2E6;
     overflow-x: auto;
-    margin-bottom: 5px;
-    vertical-align: middle;
+    /* margin-bottom: 5px; */
+    /* vertical-align: middle; */
+    /* height: 0.6rem!important; */
+    padding: 0rem 0.2rem 0rem 0.2rem;
+    margin-top: 0.2rem;
+    margin-bottom: 0.2rem;
 }
 
 .input:empty::before {
@@ -152,12 +160,14 @@ export default {
 .record {
     width: 100%;
     max-height: 100px;
-    line-height: 35px;
     font-size: 20px;
-    height: 35px;
     border: 1px solid #999999;
     border-radius: 5px;
     text-align: center;
+    padding: 0rem 0.2rem 0rem 0.2rem;
+    margin-top: 0.2rem;
+    margin-bottom: 0.2rem;
+    line-height: 0.6rem;
 }
 
 .touched {
@@ -169,7 +179,7 @@ export default {
     display: flex;
     flex-direction: column-reverse;
     text-align: center;
-    padding: 5px 8px;
+    padding: 0.2rem;
     vertical-align: middle;
 }
 

@@ -3,13 +3,13 @@
 @Date: 2019-06-11 14:59:11
 @description: 
 @LastEditors: hua
-@LastEditTime: 2019-06-12 19:43:08
+@LastEditTime: 2019-12-12 14:37:09
 '''
-from app import app
+from app import app,CONST
 from app.Vendor.Decorator import validator
 from app.Vendor.UsersAuthJWT import UsersAuthJWT
-from app.Vendor.Code import Code
 from app.Admin.Controllers.BaseController import BaseController
+from app.Vendor.Decorator import transaction
 from app.Models.Admin import Admin
 from app.Admin.Service.AdminService import AdminService
 from sqlalchemy import or_
@@ -18,6 +18,8 @@ from sqlalchemy import or_
 @validator(name="page_no", rules={'type': 'integer'}, default=0)
 @validator(name="per_page", rules={'type': 'integer'}, default=15)
 @validator(name="keyword", rules={'type': 'string'})
+@validator(name="orderBy", rules={'type': 'string'}, default='update_time')
+@validator(name="order", rules={'type': 'string'}, default='desc')
 @UsersAuthJWT.AdminApiAuth
 def adminList(*args, **kwargs):
     """ 获取管理员列表 """
@@ -27,12 +29,13 @@ def adminList(*args, **kwargs):
         or_(Admin.mobile.like('%'+params['keyword']+'%')),
         or_(Admin.email.like('%'+params['keyword']+'%'))
     }
-    data = Admin().getList(filters, Admin.update_time.desc(),(),params['page_no'], params['per_page'])
+    data = Admin().getList(filters,params['orderBy']+" "+params['order'],(),params['page_no'], params['per_page'])
     return BaseController().successData(data)
 
 @app.route('/api/v2/admin/delete', methods=['GET'])
 @validator(name="id", rules={'type': 'string'}, default=0)
 @UsersAuthJWT.AdminApiAuth
+@transaction
 def adminDelete(*args, **kwargs):
     """ 删除管理员 """
     params = kwargs['params']
@@ -50,7 +53,7 @@ def adminAdd(*args, **kwargs):
     """ 增加管理员 """
     params = kwargs['params']
     data = AdminService().add(params)
-    if data['error_code'] != Code.SUCCESS:
+    if data['error_code'] != CONST['CODE']['SUCCESS']['value']:
         return BaseController().json(data)
     return BaseController().successData()
 
@@ -58,6 +61,7 @@ def adminAdd(*args, **kwargs):
 @validator(name="id", rules={'type': 'integer'}, default='')
 @validator(name="pwd", rules={'type': 'string'}, default='')
 @UsersAuthJWT.AdminApiAuth
+@transaction
 def adminEdit(*args, **kwargs):
     """ 修改管理员密码 """
     params = kwargs['params']
